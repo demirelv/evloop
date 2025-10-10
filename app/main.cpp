@@ -97,7 +97,7 @@ public:
             return false;
         }
 
-        bool success = ev_->add_fd(server_fd_, POLLIN,
+        bool success = ev_->add(server_fd_, POLLIN,
                                    [this](int fd, short events, short revents) {
                                    this->handle_server_event(fd, events, revents);
                                    });
@@ -121,7 +121,7 @@ public:
         }
 
         if (server_fd_ >= 0) {
-            ev_->remove_fd(server_fd_);
+            ev_->remove(server_fd_);
             close(server_fd_);
             server_fd_ = -1;
         }
@@ -140,7 +140,7 @@ private:
                 std::cout << "New client connected: " << client_fd
                     << " (total: " << connection_count_ << ")" << std::endl;
 
-                ev_->add_fd(client_fd, POLLIN,
+                ev_->add(client_fd, POLLIN,
                             [this](int cfd, short ev, short rev) {
                             this->handle_client_event(cfd, ev, rev);
                             });
@@ -189,7 +189,7 @@ private:
         std::cout << "Client " << client_fd << " disconnected (remaining: "
             << connection_count_ << ")" << std::endl;
         remove_client(client_fd);
-        ev_->remove_fd(client_fd);
+        ev_->remove(client_fd);
         close(client_fd);
     }
 
