@@ -27,8 +27,7 @@ void Poller::close_pipe() {
     }
 }
 
-Poller::Poller() : running_(true), processing_loop_(false) {
-    poll_fds_.reserve(64);
+Poller::Poller() {
     pipe_fds[0] = pipe_fds[1] = -1;
     create_pipe();
 }
@@ -36,6 +35,10 @@ Poller::Poller() : running_(true), processing_loop_(false) {
 Poller::~Poller() {
     stop();
     close_pipe();
+}
+
+void Poller::start() {
+    running_ = true;
 }
 
 bool Poller::add(int fd, short events, FdCallback callback) {
@@ -130,7 +133,6 @@ void Poller::handle_pipe_callback(int fd, short events, short revents) {
 }
 
 void Poller::trigger_loop() const {
-    std::unique_lock<std::shared_mutex> lock(mtx);
     if (pipe_fds[1] > -1) {
         char wake_byte = 1;
         ssize_t result = write(pipe_fds[1], &wake_byte, 1);
@@ -161,9 +163,9 @@ int Poller::poll(int timeout_ms) {
     if (poll_fds_.empty()) {
         return -1;
     }
-
+    lock.unlock();
     int result = ::poll(poll_fds_.data(), poll_fds_.size(), timeout_ms);
-
+    lock.lock();
     if (result < 0) {
         if (errno == EINTR)
             return 0;
@@ -176,7 +178,7 @@ int Poller::poll(int timeout_ms) {
     for (const auto& pfd : poll_fds_) {
         if (pfd.revents != 0) {
             auto it = fd_map_.find(pfd.fd);
-            if (it != fd_map_.end()) {
+            if (it != fd_map_.end() && it->second->active) {
                 lock.unlock();
                 try {
                     it->second->callback(pfd.fd, pfd.events, pfd.revents);
@@ -220,14 +222,13 @@ void Poller::run(int default_timeout_ms) {
 }
 
 void Poller::stop() {
-    std::unique_lock<std::shared_mutex> lock(mtx);
     running_ = false;
-    lock.unlock();
     trigger_loop();
 }
 
-bool Poller::running() const {
-    return running_;
+bool Poller::is_running() const {
+    return running_.load();
+
 }
 
 size_t Poller::get_fd_count() const {

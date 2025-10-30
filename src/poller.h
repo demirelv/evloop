@@ -11,6 +11,7 @@
 #include <list>
 #include <mutex>
 #include <shared_mutex>
+#include <atomic>
 
 class Poller {
 public:
@@ -36,13 +37,11 @@ public:
 
     void stop();
 
-    bool running() const;
+    void start();
+
+    bool is_running() const;
 
     size_t get_fd_count() const;
-
-    size_t get_timer_count() const;
-
-    bool is_watching(int fd) const;
 
     void trigger_loop() const;
 
@@ -57,10 +56,8 @@ private:
     mutable std::shared_mutex mtx;
     int pipe_fds[2];
     std::unordered_map<int, std::unique_ptr<FdInfo>> fd_map_;
-    std::vector<pollfd> poll_fds_;
-    bool running_;
-
-    bool processing_loop_;
+    std::atomic<bool> running_{false};
+    bool processing_loop_{false};
 
     void close_pipe();
 

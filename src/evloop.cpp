@@ -27,7 +27,8 @@ EvLoop::~EvLoop() {
 }
 
 void EvLoop::run(int default_timeout_ms) {
-    while (running()) {
+    start();
+    while (is_running()) {
         int timeout = calculate_timeout(default_timeout_ms);
 
         int result = poll(timeout);
